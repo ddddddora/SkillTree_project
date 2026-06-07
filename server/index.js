@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
 const app = express();
+const { swaggerUi, specs } = require('./swagger');
 
 // Middleware
 app.use(helmet());
@@ -17,6 +18,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // Database connection
 const pool = new Pool({
@@ -232,6 +234,42 @@ const getTreeStatistics = async (treeId) => {
 };
 
 // ========== AUTH ROUTES ==========
+
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Регистрация нового пользователя
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - name
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: 123456
+ *               name:
+ *                 type: string
+ *                 example: Иван Иванов
+ *     responses:
+ *       201:
+ *         description: Пользователь успешно создан
+ *       400:
+ *         description: Неверные данные
+ *       500:
+ *         description: Ошибка сервера
+ */
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -271,6 +309,37 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Авторизация пользователя
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: 123456
+ *     responses:
+ *       200:
+ *         description: Успешный вход
+ *       401:
+ *         description: Неверные учётные данные
+ *       500:
+ *         description: Ошибка сервера
+ */
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -314,6 +383,20 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Получить информацию о текущем пользователе
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Данные пользователя
+ *       401:
+ *         description: Не авторизован
+ */
 app.get('/api/auth/me', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -341,6 +424,21 @@ app.get('/api/auth/me', async (req, res) => {
 });
 
 // ========== TREE ROUTES ==========
+
+/**
+ * @swagger
+ * /trees:
+ *   get:
+ *     summary: Получить все деревья текущего пользователя
+ *     tags: [Trees]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список деревьев
+ *       401:
+ *         description: Не авторизован
+ */
 app.get('/api/trees', authenticateToken, async (req, res) => {
   try {
     const treesResult = await pool.query(
@@ -365,6 +463,25 @@ app.get('/api/trees', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /trees/{id}:
+ *   get:
+ *     summary: Получить дерево по ID
+ *     tags: [Trees]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID дерева
+ *     responses:
+ *       200:
+ *         description: Дерево найдено
+ *       404:
+ *         description: Дерево не найдено
+ */
 app.get('/api/trees/:id', optionalAuth, async (req, res) => {
   try {
     const treeId = req.params.id;
@@ -425,6 +542,38 @@ app.get('/api/trees/:id', optionalAuth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /trees:
+ *   post:
+ *     summary: Создать новое дерево навыков
+ *     tags: [Trees]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Мой первый стек
+ *               description:
+ *                 type: string
+ *                 example: Изучение веб-разработки
+ *               category:
+ *                 type: string
+ *                 example: web
+ *     responses:
+ *       201:
+ *         description: Дерево создано
+ *       400:
+ *         description: Не указано название
+ */
 app.post('/api/trees', authenticateToken, async (req, res) => {
   let client;
   try {
@@ -461,6 +610,37 @@ app.post('/api/trees', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /trees/{id}:
+ *   put:
+ *     summary: Обновить дерево
+ *     tags: [Trees]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Дерево обновлено
+ *       404:
+ *         description: Дерево не найдено
+ */
 app.put('/api/trees/:id', authenticateToken, async (req, res) => {
   let client;
   try {
@@ -507,6 +687,26 @@ app.put('/api/trees/:id', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /trees/{id}:
+ *   delete:
+ *     summary: Удалить дерево
+ *     tags: [Trees]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Дерево удалено
+ *       404:
+ *         description: Дерево не найдено
+ */
 app.delete('/api/trees/:id', authenticateToken, async (req, res) => {
   let client;
   try {
@@ -547,6 +747,39 @@ app.delete('/api/trees/:id', authenticateToken, async (req, res) => {
 });
 
 // ========== NODE ROUTES ==========
+
+/**
+ * @swagger
+ * /nodes:
+ *   post:
+ *     summary: Создать узел (раздел или навык)
+ *     tags: [Nodes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tree_id
+ *             properties:
+ *               tree_id:
+ *                 type: integer
+ *               parent_id:
+ *                 type: integer
+ *               name:
+ *                 type: string
+ *               node_type:
+ *                 type: string
+ *                 enum: [section, skill]
+ *     responses:
+ *       201:
+ *         description: Узел создан
+ *       400:
+ *         description: Ошибка в данных
+ */
 app.post('/api/nodes', authenticateToken, async (req, res) => {
   let client;
   try {
@@ -626,6 +859,41 @@ app.post('/api/nodes', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /nodes/{id}:
+ *   put:
+ *     summary: Обновить узел
+ *     tags: [Nodes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               position_x:
+ *                 type: integer
+ *               position_y:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Узел обновлён
+ *       404:
+ *         description: Узел не найден
+ */
 app.put('/api/nodes/:id', authenticateToken, async (req, res) => {
   let client;
   try {
@@ -707,6 +975,26 @@ app.put('/api/nodes/:id', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /nodes/{id}:
+ *   delete:
+ *     summary: Удалить узел
+ *     tags: [Nodes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Узел удалён
+ *       404:
+ *         description: Узел не найден
+ */
 app.delete('/api/nodes/:id', authenticateToken, async (req, res) => {
   let client;
   try {
@@ -758,6 +1046,21 @@ app.delete('/api/nodes/:id', authenticateToken, async (req, res) => {
 });
 
 // ========== USER ROUTES ==========
+
+/**
+ * @swagger
+ * /users/profile:
+ *   get:
+ *     summary: Получить профиль текущего пользователя
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Профиль пользователя
+ *       401:
+ *         description: Не авторизован
+ */
 app.get('/api/users/profile', authenticateToken, async (req, res) => {
   try {
     const userResult = await pool.query(
@@ -799,6 +1102,33 @@ app.get('/api/users/profile', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /users/profile:
+ *   put:
+ *     summary: Обновить профиль пользователя
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               avatar_url:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Профиль обновлён
+ *       401:
+ *         description: Не авторизован
+ */
 app.put('/api/users/profile', authenticateToken, async (req, res) => {
   try {
     const { name, bio, avatar_url } = req.body;
@@ -818,6 +1148,18 @@ app.put('/api/users/profile', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /users/activity:
+ *   get:
+ *     summary: Получить активность пользователя
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список активностей
+ */
 app.get('/api/users/activity', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -838,6 +1180,18 @@ app.get('/api/users/activity', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /users/statistics:
+ *   get:
+ *     summary: Получить статистику пользователя
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Статистика
+ */
 app.get('/api/users/statistics', authenticateToken, async (req, res) => {
   try {
     const activeDaysResult = await pool.query(
@@ -886,6 +1240,19 @@ app.get('/api/users/statistics', authenticateToken, async (req, res) => {
 });
 
 // ========== DEADLINES ==========
+
+/**
+ * @swagger
+ * /users/deadlines:
+ *   get:
+ *     summary: Получить список активных дедлайнов
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список дедлайнов
+ */
 app.get('/api/users/deadlines', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -921,6 +1288,17 @@ app.post('/api/activity/log', authenticateToken, async (req, res) => {
 });
 
 // ========== LIBRARY TREES API (ГОТОВЫЕ ДЕРЕВЬЯ) ==========
+
+/**
+ * @swagger
+ * /library/trees:
+ *   get:
+ *     summary: Получить список готовых деревьев (библиотека)
+ *     tags: [Library]
+ *     responses:
+ *       200:
+ *         description: Список готовых деревьев
+ */
 app.get('/api/library/trees', async (req, res) => {
   try {
     const result = await pool.query(
@@ -983,6 +1361,21 @@ app.delete('/api/admin/trees/:id', authenticateAdmin, async (req, res) => {
 });
 
 // ========== ADMIN USER MANAGEMENT ==========
+
+/**
+ * @swagger
+ * /admin/users:
+ *   get:
+ *     summary: Получить список всех пользователей (только админ)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Список пользователей
+ *       403:
+ *         description: Доступ запрещён
+ */
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
   try {
     const result = await pool.query(
